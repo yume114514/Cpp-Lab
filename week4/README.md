@@ -8,7 +8,7 @@
 | 课程 | 高级语言程序设计（C++ 语言） |
 | 实验环境 | Windows 11 + VS Code + MinGW-w64 g++ 16.1.0（C++17） |
 
-本周只有第六讲一个部分，5 道编程练习（6-17、6-18、6-20、6-21、6-22），
+本周只有第六讲一个部分，6 道练习（6-17、6-18、6-20、6-21、6-22、6-29），
 一题一个子文件夹，源码与答案分析都放在各自文件夹里。
 
 ## 目录
@@ -20,7 +20,8 @@ week4/
    ├─ 02_memory_leak/         6-18  内存泄漏：new 了不 delete
    ├─ 03_simple_circle/       6-20  SimpleCircle 类（int *itsRadius）
    ├─ 04_count_letters/       6-21  统计英文句子中的字母个数
-   └─ 05_recursive_reverse/   6-22  递归实现 void reverse(string &s)
+   ├─ 05_recursive_reverse/   6-22  递归实现 void reverse(string &s)
+   └─ 06_reinterpret_cast/    6-29  reinterpret_cast 越界写入与安全问题
 ```
 
 ## 题目与状态
@@ -32,6 +33,7 @@ week4/
 | 03 | 6-20 | `SimpleCircle` 类，`int *itsRadius` | 编程 | ✅ 已完成 | [part6/03_simple_circle/](part6/03_simple_circle/) |
 | 04 | 6-21 | 统计英文句子中字母的个数 | 编程 | ✅ 已完成 | [part6/04_count_letters/](part6/04_count_letters/) |
 | 05 | 6-22 | 递归函数 `void reverse(string &s)` | 编程 | ✅ 已完成 | [part6/05_recursive_reverse/](part6/05_recursive_reverse/) |
+| 06 | 6-29 | `reinterpret_cast<double*>` 越界写入 | 分析 + 安全 | ✅ 已分析 | [part6/06_reinterpret_cast/](part6/06_reinterpret_cast/) |
 
 ## 编译与运行
 
@@ -40,7 +42,7 @@ g++ -std=c++17 -O2 -Wall part6/01_pointer_uninit/main.cpp -o t
 ./t
 ```
 
-## 找错题的答案怎么写（6-17、6-18 这类题）
+## 找错题的答案怎么写（6-17、6-18、6-29 这类题）
 
 不要写成「第几行有错」的散文，按下面四段固定结构写，每段一句话到三句话：
 
@@ -123,3 +125,19 @@ g++ -std=c++17 -O2 -Wall part6/01_pointer_uninit/main.cpp -o t
 - 循环逐字符判断，`(ch>='a'&&ch<='z')||(ch>='A'&&ch<='Z')` 才计数；
 - 实测：`Hello World → 10`、`Hello, World! 123 → 10`、`abc → 3`、全空格 → `0`、中文 → `0`；
 - `04_count_letters/size_test.cpp` 是最早那个 `sizeof` / `size()` 对比小实验，留作记录。
+
+## 6-29 `reinterpret_cast` 越界写入
+
+源码 [part6/06_reinterpret_cast/main.cpp](part6/06_reinterpret_cast/main.cpp)，
+完整分析见 [part6/06_reinterpret_cast/answer.md](part6/06_reinterpret_cast/answer.md)。
+
+要点：
+
+- `int` 占 4 字节、`double` 占 8 字节，`reinterpret_cast<double*>` 只换类型标签、不改地址；
+- `*p = 5;` 写入 8 字节，`arr[0]` 和 `arr[1]` 被一起覆盖；
+- `5.0` 的位模式 `0x4014000000000000`，小端字节 `00 00 00 00 00 00 14 40`
+  → `arr[0] = 0`、`arr[1] = 0x40140000 = 1075052544`、`arr[2] = 3`；
+- 实测输出：`0 1075052544 3`；
+- 编译不报错是因为 `reinterpret_cast` 跳过类型检查，但这属于未定义行为；
+  数组只有 4 字节时写 8 字节会踩到相邻变量甚至返回地址，这是指针造成安全漏洞的典型方式；
+- 避免：指针类型与对象类型一致；转值用 `static_cast`；按字节访问用 `unsigned char*` 并核对 `sizeof`。
